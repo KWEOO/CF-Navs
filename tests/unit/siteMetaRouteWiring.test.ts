@@ -29,12 +29,14 @@ describe('site meta route wiring', () => {
     expect(routes).toContain('SITE_META_DEADLINE_MS')
   })
 
-  it('wires the blur trigger and the single-instance requestId reset', () => {
+  it('wires the blur trigger and the single-instance requestId resets', () => {
     const baseFields = readFileSync('src/components/BookmarkBaseFields.svelte', 'utf8')
     const modal = readFileSync('src/components/BookmarkEditModal.svelte', 'utf8')
 
     expect(baseFields).toContain('on:blur={() => onUrlBlur?.()}')
     expect(modal).toContain('createBookmarkTitleState(titleLookupState.requestId)')
+    expect(modal).toContain('createBookmarkFaviconState(faviconLookupState.requestId)')
+    expect(modal).toContain('api.bookmarks.fetchFavicon(url)')
     expect(modal).toContain('onUrlBlur={handleUrlBlur}')
   })
 })

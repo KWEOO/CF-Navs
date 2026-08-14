@@ -12,11 +12,33 @@
   export let onImportData: ((file: File, source: ImportSource, mode: 'replace' | 'merge') => AsyncVoid) | undefined = undefined
 
   let importInput: HTMLInputElement | null = null
+  let browserImportInput: HTMLInputElement | null = null
   let importMode: 'replace' | 'merge' = 'replace'
-
+  let browserDragActive = false
 
   function triggerImport() {
     importInput?.click()
+  }
+
+  function triggerBrowserImport() {
+    browserImportInput?.click()
+  }
+
+  async function importBrowserFile(file: File | undefined) {
+    if (!file || !onImportData) return
+    await onImportData(file, 'browser-html', 'merge')
+  }
+
+  async function handleBrowserImportChange(event: Event) {
+    const input = event.currentTarget as HTMLInputElement
+    await importBrowserFile(input.files?.[0])
+    input.value = ''
+  }
+
+  async function handleBrowserDrop(event: DragEvent) {
+    event.preventDefault()
+    browserDragActive = false
+    await importBrowserFile(event.dataTransfer?.files?.[0])
   }
 
   async function handleImportChange(event: Event) {
@@ -46,8 +68,7 @@
     </div>
   </div>
   <p class="backup-desc">
-    导出会把当前全部分类、书签与站点设置保存为一个 JSON 文件；导入时可选择
-    <strong>追加合并</strong>或<strong>覆盖现有数据</strong>，管理员账号不受影响。
+    浏览器书签可使用下方专用入口一键追加；完整备份与 SunPanel 数据继续使用高级导入。
   </p>
 
   {#if backupError}
@@ -57,6 +78,37 @@
   {/if}
 
   <div class="backup-operations">
+    <section
+      class="backup-operation browser-import-operation"
+      class:drag-active={browserDragActive}
+      aria-labelledby="browser-import-title"
+      on:dragenter|preventDefault={() => browserDragActive = true}
+      on:dragover|preventDefault={() => browserDragActive = true}
+      on:dragleave={() => browserDragActive = false}
+      on:drop={handleBrowserDrop}
+    >
+      <div class="backup-operation-copy">
+        <p class="operation-badge">推荐</p>
+        <h3 id="browser-import-title">一键导入浏览器书签</h3>
+        <p>选择或拖入 Chrome、Edge、Firefox 导出的 HTML。自动恢复分类、补全网站图标，并跳过同分类重复网址。</p>
+        <ul class="import-features" aria-label="浏览器书签导入规则">
+          <li>默认追加，不覆盖现有数据</li>
+          <li>导入前显示分类、书签、无效链接、重复项和图标统计</li>
+          <li>文件仅在浏览器中解析，原始 HTML 不会上传</li>
+        </ul>
+      </div>
+      <button type="button" class="primary-button" on:click={triggerBrowserImport} disabled={!isAuthenticated || importing}>
+        {#if importing}导入中...{:else}选择 HTML 一键导入{/if}
+      </button>
+      <input
+        bind:this={browserImportInput}
+        class="import-input"
+        type="file"
+        accept="text/html,.html,.htm"
+        on:change={handleBrowserImportChange}
+      />
+    </section>
+
     <section class="backup-operation" aria-labelledby="export-backup-title">
       <div class="backup-operation-copy">
         <h3 id="export-backup-title">导出当前数据</h3>
@@ -69,19 +121,24 @@
 
     <section class="backup-operation" aria-labelledby="import-backup-title" on:dragover|preventDefault on:drop={handleDrop}>
       <div class="backup-operation-copy">
-        <h3 id="import-backup-title">导入数据</h3>
-        <p>支持点击或拖放 JSON、HTML、HTM 文件，格式会自动识别。</p>
+        <h3 id="import-backup-title">高级数据导入</h3>
+        <p>用于 CF-Navs JSON 备份、SunPanel 导出，或需要覆盖模式的高级操作。</p>
       </div>
       <div class="import-actions">
         <label class="import-source-field" for="import-source">
           <span>导入来源</span>
-          <select class="native-select" id="import-source" bind:value={importSource} on:change={() => { if (importSource === 'browser-html') importMode = 'merge' }} disabled={!isAuthenticated || importing}>
+          <select class="native-select" id="import-source" bind:value={importSource} disabled={!isAuthenticated || importing}>
             <option value="cf-navs">CF-Navs 备份</option>
             <option value="sunpanel">SunPanel 导出</option>
-            <option value="browser-html">浏览器书签 HTML</option>
           </select>
         </label>
-        <label class="import-source-field"><span>导入模式</span><select class="native-select" bind:value={importMode} disabled={!isAuthenticated || importing}><option value="merge">追加合并</option><option value="replace">覆盖现有数据</option></select></label>
+        <label class="import-source-field">
+          <span>导入模式</span>
+          <select class="native-select" bind:value={importMode} disabled={!isAuthenticated || importing}>
+            <option value="merge">追加合并</option>
+            <option value="replace">覆盖现有数据</option>
+          </select>
+        </label>
         <button type="button" class="ghost-button" on:click={triggerImport} disabled={!isAuthenticated || importing}>
           {#if importing}导入中...{:else}选择文件并导入{/if}
         </button>
@@ -89,7 +146,7 @@
           bind:this={importInput}
           class="import-input"
           type="file"
-          accept="application/json,text/html,.json,.html,.htm,.sun-panel.json,.sunpanel.json"
+          accept="application/json,.json,.sun-panel.json,.sunpanel.json"
           on:change={handleImportChange}
         />
       </div>
@@ -114,17 +171,18 @@
     margin-bottom: 14px;
   }
 
-  .panel-eyebrow {
-    margin: 0 0 8px;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--admin-subtle);
-  }
-
+  .panel-eyebrow,
   h2,
   p {
     margin: 0;
+  }
+
+  .panel-eyebrow {
+    margin-bottom: 8px;
+    color: var(--admin-subtle);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   h2 {
@@ -132,9 +190,9 @@
   }
 
   .backup-desc {
+    margin-bottom: 16px;
     color: var(--admin-muted);
     line-height: 1.6;
-    margin-bottom: 16px;
   }
 
   .backup-operations {
@@ -151,10 +209,33 @@
     border: 1px solid var(--admin-border);
     border-radius: 14px;
     background: var(--admin-control-bg);
+    transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+  }
+
+  .browser-import-operation {
+    border-color: color-mix(in srgb, #2563eb 34%, var(--admin-border));
+    background: color-mix(in srgb, #2563eb 5%, var(--admin-control-bg));
+  }
+
+  .browser-import-operation.drag-active {
+    border-color: #2563eb;
+    background: color-mix(in srgb, #2563eb 10%, var(--admin-control-bg));
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
   }
 
   .backup-operation-copy {
     min-width: 0;
+  }
+
+  .operation-badge {
+    display: inline-flex;
+    margin-bottom: 6px;
+    border-radius: 999px;
+    padding: 3px 8px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 700;
   }
 
   .backup-operation-copy h3 {
@@ -162,10 +243,16 @@
     font-size: 15px;
   }
 
-  .backup-operation-copy p {
+  .backup-operation-copy p,
+  .import-features {
     color: var(--admin-muted);
     font-size: 13px;
     line-height: 1.5;
+  }
+
+  .import-features {
+    margin: 8px 0 0;
+    padding-left: 18px;
   }
 
   .import-actions {
@@ -234,6 +321,7 @@
   }
 
   .primary-button {
+    flex: 0 0 auto;
     border: none;
     background: #2563eb;
     color: #ffffff;
@@ -298,6 +386,8 @@
       white-space: nowrap;
     }
 
-    .primary-button { align-self: flex-start; }
+    .primary-button {
+      align-self: flex-start;
+    }
   }
 </style>

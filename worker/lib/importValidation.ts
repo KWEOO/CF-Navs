@@ -107,6 +107,9 @@ export function validateImportPayload(body: unknown): ImportValidationResult {
   if (body.mode !== undefined && body.mode !== 'replace' && body.mode !== 'merge') {
     return { ok: false, message: 'invalid import mode' }
   }
+  if (body.dedupe_bookmarks !== undefined && typeof body.dedupe_bookmarks !== 'boolean') {
+    return { ok: false, message: 'invalid dedupe_bookmarks flag' }
+  }
 
   const payload: ImportReq = {
     categories: normalizedCategories,
@@ -114,5 +117,6 @@ export function validateImportPayload(body: unknown): ImportValidationResult {
   }
   if (body.settings !== undefined) payload.settings = body.settings
   if (body.mode !== undefined) payload.mode = body.mode
+  if (body.dedupe_bookmarks !== undefined) payload.dedupe_bookmarks = body.dedupe_bookmarks
   return { ok: true, payload, droppedBookmarks }
 }

@@ -47,6 +47,8 @@ dataRoutes.post('/import', async (c) => {
       reused_categories: merged?.reusedCategories ?? 0,
       // 合并模式跳过的重复链接，加上校验阶段因协议不合规被丢弃的条数。
       skipped_bookmarks: (merged?.skippedBookmarks ?? 0) + validation.droppedBookmarks,
+      duplicate_bookmarks: merged?.skippedBookmarks ?? 0,
+      invalid_bookmarks: validation.droppedBookmarks,
     }))
   } catch {
     return c.json(fail(ErrCode.SERVER_ERROR, 'failed to import data'))

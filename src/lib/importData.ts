@@ -1,5 +1,6 @@
 import type { BackupData, Bookmark, Category, ImportReq, Settings } from '../../shared/types'
 import { normalizeCategories } from '../../shared/categoryHierarchy'
+import { bookmarkIdentityKey } from '../../shared/bookmarkIdentity'
 import { isRecord } from './guards'
 import { iconifyIcon } from './icons'
 
@@ -11,7 +12,9 @@ export interface PreparedImport {
   bookmarks: number
   sourceLabel: string
   skipped?: number
+  duplicateBookmarks?: number
   retainedIcons?: number
+  generatedIcons?: number
 }
 
 function readString(value: unknown, fallback = ''): string {
@@ -233,7 +236,10 @@ export function prepareBrowserBookmarkHtml(text: string): PreparedImport {
   let nextCategoryId = 1
   let nextBookmarkId = 1
   let skipped = 0
+  let duplicateBookmarks = 0
   let retainedIcons = 0
+  let generatedIcons = 0
+  const bookmarkKeys = new Set<string>()
 
   const rootByTitle = new Map<string, Category>()
   const childByPath = new Map<string, Category>()
@@ -292,16 +298,22 @@ export function prepareBrowserBookmarkHtml(text: string): PreparedImport {
     const url = attribute(tag, 'HREF').trim()
     if (!validBookmarkUrl(url)) { skipped += 1; return }
     const categoryId = categoryForPath(categoryPath).id
+    const identityKey = bookmarkIdentityKey(categoryId, url)
+    if (identityKey && bookmarkKeys.has(identityKey)) { duplicateBookmarks += 1; return }
+    if (identityKey) bookmarkKeys.add(identityKey)
+
     const icon = (attribute(tag, 'ICON') || attribute(tag, 'ICON_URI')).trim() || null
     const safeIcon = icon && (/^https?:\/\//i.test(icon) || (/^data:image\//i.test(icon) && icon.length <= 256 * 1024)) ? icon : null
+    const generatedIcon = safeIcon ? '' : faviconForUrl(url)
     if (safeIcon) retainedIcons += 1
+    else if (generatedIcon) generatedIcons += 1
     const sort = nextSort.get(categoryId) ?? 0
     nextSort.set(categoryId, sort + 1)
     bookmarks.push({
       id: nextBookmarkId++, category_id: categoryId,
       title: titleFallback(decode(title.replace(/<[^>]+>/g, '')), url), url,
-      icon: safeIcon?.startsWith('data:') ? null : safeIcon,
-      icon_source: safeIcon?.startsWith('data:') ? 'custom' : null,
+      icon: safeIcon?.startsWith('data:') ? null : (safeIcon || generatedIcon || null),
+      icon_source: safeIcon?.startsWith('data:') ? 'custom' : safeIcon ? null : generatedIcon ? 'favicon_im' : null,
       icon_background_color: null, icon_blob: safeIcon?.startsWith('data:') ? safeIcon : null,
       description: null, description_mode: null,
       open_method: 1, sort, created_at: Number(attribute(tag, 'ADD_DATE')) ? Number(attribute(tag, 'ADD_DATE')) * 1000 : now,
@@ -366,5 +378,14 @@ export function prepareBrowserBookmarkHtml(text: string): PreparedImport {
   }
   if (captureDescription) { const description = decode(descriptionText).trim(); if (description && bookmarks.length > 0) bookmarks[bookmarks.length - 1].description = description }
   if (bookmarks.length === 0) throw new Error('书签文件中没有有效的 HTTP(S) 链接')
-  return { payload: { categories, bookmarks, mode: 'replace' }, categories: categories.length, bookmarks: bookmarks.length, sourceLabel: '浏览器书签 HTML', skipped, retainedIcons }
+  return {
+    payload: { categories, bookmarks, mode: 'replace', dedupe_bookmarks: true },
+    categories: categories.length,
+    bookmarks: bookmarks.length,
+    sourceLabel: '浏览器书签 HTML',
+    skipped,
+    duplicateBookmarks,
+    retainedIcons,
+    generatedIcons,
+  }
 }

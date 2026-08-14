@@ -16,6 +16,13 @@
     scheduleBookmarkTitleLookup,
     type BookmarkTitleState,
   } from '../lib/bookmarkTitleController'
+  import {
+    createBookmarkFaviconState,
+    resolveBookmarkFaviconError,
+    resolveBookmarkFaviconSuccess,
+    scheduleBookmarkFaviconLookup,
+    type BookmarkFaviconState,
+  } from '../lib/bookmarkFaviconController'
   import type { BookmarkFormValue } from '../lib/adminTypes'
   import type { CategoryTreeOption } from '../lib/categorySelect'
   import {
@@ -70,6 +77,8 @@
   let iconifySearchState: BookmarkIconifySearchState = createBookmarkIconifySearchState()
   let iconifySearchTimer: ReturnType<typeof setTimeout> | null = null
   let titleLookupState: BookmarkTitleState = createBookmarkTitleState()
+  let faviconLookupState: BookmarkFaviconState = createBookmarkFaviconState()
+  let faviconLookupPromise: Promise<void> | null = null
   let previousBodyOverflow: string | null = null
   let previousDocumentOverflow: string | null = null
 
@@ -97,6 +106,7 @@
     iconifySearchState = createBookmarkIconifySearchState()
     // 弹窗是单例，requestId 必须接着上一轮往下走，否则上一轮在途的响应会污染新表单。
     titleLookupState = createBookmarkTitleState(titleLookupState.requestId)
+    faviconLookupState = createBookmarkFaviconState(faviconLookupState.requestId)
     // 编辑模式也重新生成候选
     if (form.url.trim()) {
       candidates = getIconCandidates(form.url.trim(), form.title.trim())
@@ -179,6 +189,11 @@
   }
 
   function handleUrlBlur() {
+    scheduleSiteTitleLookup()
+    scheduleFaviconLookup()
+  }
+
+  function scheduleSiteTitleLookup() {
     const result = scheduleBookmarkTitleLookup(titleLookupState, {
       mode,
       url: form.url,
@@ -190,6 +205,27 @@
     if (!result.task) return
 
     void loadSiteTitle(result.task.url, result.task.requestId)
+  }
+
+  function scheduleFaviconLookup() {
+    const result = scheduleBookmarkFaviconLookup(faviconLookupState, {
+      mode,
+      url: form.url,
+      icon: form.icon,
+      iconSource: form.icon_source,
+    })
+    if (!result.changed) return
+
+    faviconLookupState = result.state
+    if (!result.task) return
+
+    const lookup = loadSiteFavicon(result.task.url, result.task.requestId)
+    faviconLookupPromise = lookup
+    void lookup.finally(() => {
+      if (faviconLookupPromise === lookup) {
+        faviconLookupPromise = null
+      }
+    })
   }
 
   async function loadSiteTitle(url: string, requestId: number) {
@@ -211,6 +247,30 @@
         requestId,
         error: getErrorMessage(lookupError),
       })
+    }
+  }
+
+  async function loadSiteFavicon(url: string, requestId: number) {
+    try {
+      const result = await api.bookmarks.fetchFavicon(url)
+      const resolved = resolveBookmarkFaviconSuccess(faviconLookupState, {
+        requestId,
+        icon: result.icon,
+        currentUrl: form.url,
+        currentIcon: form.icon,
+        currentIconSource: form.icon_source,
+      })
+      faviconLookupState = resolved.state
+      if (resolved.icon && resolved.iconSource) {
+        form.icon = resolved.icon
+        form.icon_source = resolved.iconSource
+        iconifyName = ''
+        iconifyUseConfirmed = false
+        confirmedIconifyName = ''
+      }
+    } catch {
+      // 自动获取失败不阻止新增书签，用户仍可选择现有候选或手动填写。
+      faviconLookupState = resolveBookmarkFaviconError(faviconLookupState, { requestId })
     }
   }
 
@@ -309,6 +369,12 @@
   }
 
   async function handleSubmit() {
+    // blur 通常会先触发自动获取；这里再调一次并等待当前请求，保证用户直接按回车
+    // 或紧接着点保存时，也不会因为网络请求尚未完成而保存成无图标书签。
+    scheduleFaviconLookup()
+    if (faviconLookupPromise) {
+      await faviconLookupPromise
+    }
     await onSubmit?.(buildBookmarkSubmitPayload(form, iconifyName))
   }
 
@@ -353,6 +419,7 @@
           {candidates}
           {form}
           urlFilled={Boolean(form.url.trim())}
+          autoLoading={faviconLookupState.loading}
           onSelect={selectCandidate}
         />
 

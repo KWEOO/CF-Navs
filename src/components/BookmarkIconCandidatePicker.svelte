@@ -12,6 +12,7 @@
   export let candidates: IconCandidate[] = []
   export let form: BookmarkFormValue
   export let urlFilled = false
+  export let autoLoading = false
   export let onSelect: ((candidate: IconCandidate) => AsyncVoid) | undefined = undefined
 
   function handleSelect(candidate: IconCandidate) {
@@ -20,7 +21,10 @@
 </script>
 
 <div class="icon-picker-section field-compact">
-  <span class="field-label">选择图标</span>
+  <span class="field-label">
+    选择图标
+    {#if autoLoading}<small class="field-hint">正在获取网站图标…</small>{/if}
+  </span>
 
   {#if candidates.length > 0}
     <div class="icon-candidates">
@@ -51,6 +55,13 @@
     color: #334155;
     font-size: 13px;
     font-weight: 600;
+  }
+
+  .field-hint {
+    margin-left: 6px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 400;
   }
 
   .hint-text {

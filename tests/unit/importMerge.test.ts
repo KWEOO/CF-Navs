@@ -46,4 +46,46 @@ describe('merge import data', () => {
     expect(result.payload.bookmarks.map((item) => item.category_id)).toEqual([6, 9])
     expect(result.payload.settings).toBeUndefined()
   })
+
+  it('skips matching urls in the reused category only when dedupe is enabled', () => {
+    const current = {
+      categories: [
+        { id: 1, parent_id: null, title: 'Work', icon: null, sort: 0, created_at: 1 },
+        { id: 2, parent_id: null, title: 'Personal', icon: null, sort: 1, created_at: 1 },
+      ],
+      bookmarks: [bookmark(1, 1, 'Existing')],
+      settings: null,
+    }
+    current.bookmarks[0].url = 'https://example.com/'
+    const incoming = {
+      categories: [
+        { id: 10, parent_id: null, title: 'work', icon: null, sort: 0, created_at: 1 },
+        { id: 11, parent_id: null, title: 'Personal', icon: null, sort: 1, created_at: 1 },
+      ],
+      bookmarks: [
+        { ...bookmark(10, 10, 'Duplicate'), url: 'https://EXAMPLE.com' },
+        { ...bookmark(11, 11, 'Other category'), url: 'https://example.com' },
+      ],
+      dedupe_bookmarks: true,
+    }
+
+    const result = mergeImportData(current, incoming)
+    expect(result.skippedBookmarks).toBe(1)
+    expect(result.payload.bookmarks.map((item) => item.title)).toEqual(['Existing', 'Other category'])
+  })
+
+  it('keeps duplicate urls for legacy import sources when dedupe is disabled', () => {
+    const current = {
+      categories: [{ id: 1, parent_id: null, title: 'Work', icon: null, sort: 0, created_at: 1 }],
+      bookmarks: [{ ...bookmark(1, 1, 'Existing'), url: 'https://example.com/' }],
+      settings: null,
+    }
+    const result = mergeImportData(current, {
+      categories: [{ id: 10, parent_id: null, title: 'Work', icon: null, sort: 0, created_at: 1 }],
+      bookmarks: [{ ...bookmark(10, 10, 'Duplicate'), url: 'https://example.com' }],
+    })
+
+    expect(result.skippedBookmarks).toBe(0)
+    expect(result.payload.bookmarks).toHaveLength(2)
+  })
 })

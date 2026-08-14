@@ -44,6 +44,19 @@ export function createBackupExportArtifact(
   }
 }
 
-export function createImportSuccessMessage(result: Pick<ImportResp, 'categories' | 'bookmarks'>): string {
-  return `导入成功：${result.categories} 个分类、${result.bookmarks} 个书签。`
+export function createImportSuccessMessage(result: ImportResp): string {
+  const parts = [`导入成功：${result.categories} 个分类、${result.bookmarks} 个书签`]
+  if (result.created_categories != null || result.reused_categories != null) {
+    parts.push(`新建分类 ${result.created_categories ?? 0} 个，复用分类 ${result.reused_categories ?? 0} 个`)
+  }
+  if ((result.duplicate_bookmarks ?? 0) > 0) {
+    parts.push(`跳过重复 ${result.duplicate_bookmarks} 个`)
+  }
+  if ((result.invalid_bookmarks ?? 0) > 0) {
+    parts.push(`跳过无效链接 ${result.invalid_bookmarks} 个`)
+  }
+  if (result.retained_icons != null || result.generated_icons != null) {
+    parts.push(`保留图标 ${result.retained_icons ?? 0} 个，自动补图标 ${result.generated_icons ?? 0} 个`)
+  }
+  return `${parts.join('；')}。`
 }

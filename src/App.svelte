@@ -12,6 +12,7 @@
   import Toast from './components/Toast.svelte'
   import Home from './views/Home.svelte'
   import Install from './views/Install.svelte'
+  import LoginGate from './views/LoginGate.svelte'
   import { api, getErrorMessage, isUnauthorizedError } from './lib/api'
   import { clearCachedAdminData } from './lib/adminDataCache'
   import { clearCachedPublicData } from './lib/publicDataCache'
@@ -1003,26 +1004,7 @@
         />
       </div>
     {:else if currentView === 'login'}
-      <div class="app-splash">
-        <div class="app-splash-card">
-          <div class="app-splash-mark" aria-hidden="true">
-            <svg class="app-splash-spinner" viewBox="0 0 50 50">
-              <circle class="ring" cx="25" cy="25" r="20" fill="none" stroke="url(#splash-spinner-grad-login)" stroke-width="3.5"></circle>
-              <circle class="dot" cx="25" cy="25" r="4.5" fill="#2dd4bf"></circle>
-              <defs>
-                <linearGradient id="splash-spinner-grad-login" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#38bdf8"></stop>
-                  <stop offset="60%" stop-color="#2dd4bf"></stop>
-                  <stop offset="100%" stop-color="#bef264"></stop>
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <p class="eyebrow">CF-Navs</p>
-          <h1>请先登录管理员账号</h1>
-          <p>当前站点未公开，登录后再加载后台管理界面。</p>
-        </div>
-      </div>
+      <LoginGate title={homeTitle} />
     {:else if AdminComponent}
       <svelte:component
         this={AdminComponent}
@@ -1106,6 +1088,7 @@
         open={loginModalOpen}
         loading={$authStore.loading}
         error={$authStore.error ?? ''}
+        dismissible={canSeeHome}
         onSubmit={handleLogin}
         onCancel={handleCloseLogin}
       />

@@ -70,6 +70,18 @@ describe('import payload validation', () => {
     })).toEqual({ ok: false, message: 'bookmark 10 references missing category 99' })
   })
 
+  it('preserves a valid browser-bookmark dedupe flag', () => {
+    expect(validateImportPayload({ ...validPayload, dedupe_bookmarks: true })).toEqual({
+      ok: true,
+      payload: { ...validPayload, dedupe_bookmarks: true },
+      droppedBookmarks: 0,
+    })
+    expect(validateImportPayload({ ...validPayload, dedupe_bookmarks: 'yes' })).toEqual({
+      ok: false,
+      message: 'invalid dedupe_bookmarks flag',
+    })
+  })
+
   it('rejects null, array, or scalar settings when settings is present', () => {
     expect(validateImportPayload({ ...validPayload, settings: null })).toEqual({
       ok: false,

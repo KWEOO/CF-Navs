@@ -19,6 +19,13 @@ describe('browser bookmark import', () => {
     expect(result.skipped).toBe(1)
     expect(result.payload.bookmarks[0].description).toBe('Example description')
     expect(result.payload.bookmarks[0].icon_blob).toMatch(/^data:image\//)
+    expect(result.payload.bookmarks[1]).toMatchObject({
+      icon: 'https://favicon.im/example.com?larger=true',
+      icon_source: 'favicon_im',
+    })
+    expect(result.generatedIcons).toBe(1)
+    expect(result.retainedIcons).toBe(1)
+    expect(result.payload.dedupe_bookmarks).toBe(true)
     expect(result.payload.bookmarks[0].created_at).toBe(1700000000000)
     expect(result.payload.categories.map((category) => ({ title: category.title, parent_id: category.parent_id }))).toEqual([
       { title: 'Work', parent_id: null },
@@ -58,6 +65,26 @@ describe('browser bookmark import', () => {
     const result = prepareBrowserBookmarkHtml(exportedHtml)
     expect(result.payload.categories.map(category => category.title)).toEqual(['浏览器书签', 'Folder'])
     expect(result.payload.bookmarks.map(bookmark => bookmark.category_id)).toEqual([1, 2])
+  })
+
+  it('deduplicates the same normalized url only inside the same category', () => {
+    const exportedHtml = `<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p>
+<DT><H3>Work</H3><DL><p>
+  <DT><A HREF="https://EXAMPLE.com">First</A>
+  <DT><A HREF="https://example.com/">Duplicate</A>
+</DL><p>
+<DT><H3>Personal</H3><DL><p>
+  <DT><A HREF="https://example.com">Same URL, another category</A>
+</DL><p>
+</DL><p>`
+
+    const result = prepareBrowserBookmarkHtml(exportedHtml)
+    expect(result.bookmarks).toBe(2)
+    expect(result.duplicateBookmarks).toBe(1)
+    expect(result.payload.bookmarks.map((bookmark) => bookmark.title)).toEqual([
+      'First',
+      'Same URL, another category',
+    ])
   })
 
   it('maps two levels and flattens deeper folders with a distinct separator', () => {

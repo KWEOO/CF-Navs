@@ -119,6 +119,37 @@ export function describeExecutableImportContent(settings: unknown): ExecutableIm
   return found
 }
 
+export function createBrowserBookmarkImportConfirmation(input: {
+  categories: number
+  bookmarks: number
+  skipped?: number
+  duplicateBookmarks?: number
+  retainedIcons?: number
+  generatedIcons?: number
+  createdCategories?: number
+  reusedCategories?: number
+  existingDuplicates?: number
+  importableBookmarks?: number
+}): ConfirmDialogInput {
+  const lines = [
+    `解析到 ${input.categories} 个分类、${input.bookmarks} 个有效书签；本次预计导入 ${input.importableBookmarks ?? input.bookmarks} 个。`,
+    `分类：新建 ${input.createdCategories ?? input.categories} 个，复用 ${input.reusedCategories ?? 0} 个；同一分类下已经存在的相同网址会自动跳过。`,
+    `图标：保留文件内图标 ${input.retainedIcons ?? 0} 个，自动补全网站图标 ${input.generatedIcons ?? 0} 个。`,
+  ]
+  const skipped = input.skipped ?? 0
+  const duplicates = input.duplicateBookmarks ?? 0
+  const existingDuplicates = input.existingDuplicates ?? 0
+  if (skipped > 0 || duplicates > 0 || existingDuplicates > 0) {
+    lines.push(`跳过统计：无效链接 ${skipped} 个，文件内重复 ${duplicates} 个，现有数据重复 ${existingDuplicates} 个。`)
+  }
+
+  return {
+    title: '导入浏览器书签',
+    message: lines.join('\n'),
+    confirmLabel: '一键导入',
+  }
+}
+
 export function createImportOverwriteConfirmation(input: {
   sourceLabel: string
   categories: number

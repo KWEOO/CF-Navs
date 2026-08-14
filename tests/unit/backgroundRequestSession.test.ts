@@ -38,14 +38,17 @@ describe('background request session handling', () => {
     setApiBaseUrl('/api')
   })
 
-  // 失焦自动解析站点名称是后台请求，用户没主动操作；
-  // 让它清掉登录态会把手上未保存的书签表单一起弄丢。
-  it.each(['http', 'envelope'] as const)(
-    'keeps the session when the automatic site meta lookup gets a %s 401',
-    async (mode) => {
-      vi.stubGlobal('fetch', vi.fn(async () => unauthorizedResponse(mode)))
+  // 失焦自动解析站点名称和 favicon 都是后台请求，用户没主动操作；
+  // 让它们清掉登录态会把手上未保存的书签表单一起弄丢。
+  it.each([
+    ['site meta', () => api.bookmarks.fetchSiteMeta('https://example.com')],
+    ['favicon', () => api.bookmarks.fetchFavicon('https://example.com')],
+  ] as const)(
+    'keeps the session when the automatic %s lookup gets a 401',
+    async (_label, request) => {
+      vi.stubGlobal('fetch', vi.fn(async () => unauthorizedResponse('http')))
 
-      await expect(api.bookmarks.fetchSiteMeta('https://example.com')).rejects.toThrow()
+      await expect(request()).rejects.toThrow()
       expect(getAuthToken()).toBe('session-token')
     },
   )

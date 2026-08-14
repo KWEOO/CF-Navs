@@ -59,7 +59,21 @@ describe('app backup helpers', () => {
     expect(createBackupExportMessage({ categories: [category], bookmarks: [bookmark, { ...bookmark, id: 11 }] }))
       .toBe('已导出 1 个分类、2 个书签。')
 
-    expect(createImportSuccessMessage({ categories: 3, bookmarks: 9 })).toBe('导入成功：3 个分类、9 个书签。')
+    expect(createImportSuccessMessage({ categories: 3, bookmarks: 9, data: {} as AdminData })).toBe('导入成功：3 个分类、9 个书签。')
+  })
+
+  it('includes browser import details in the success message', () => {
+    expect(createImportSuccessMessage({
+      categories: 3,
+      bookmarks: 9,
+      data: {} as AdminData,
+      created_categories: 2,
+      reused_categories: 1,
+      duplicate_bookmarks: 4,
+      invalid_bookmarks: 2,
+      retained_icons: 5,
+      generated_icons: 7,
+    })).toBe('导入成功：3 个分类、9 个书签；新建分类 2 个，复用分类 1 个；跳过重复 4 个；跳过无效链接 2 个；保留图标 5 个，自动补图标 7 个。')
   })
 
   it('bundles export artifacts for direct download without extra assembly in the view', () => {

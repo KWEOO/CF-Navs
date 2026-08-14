@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createConfirmDialogState,
+  createBrowserBookmarkImportConfirmation,
   createDeleteBookmarkConfirmation,
   createDeleteCategoryConfirmation,
   createImportOverwriteConfirmation,
@@ -52,6 +53,37 @@ describe('app confirmation dialog helpers', () => {
       variant: 'danger',
       confirmDisabled: false,
     })
+  })
+
+  it('builds a browser bookmark preview with import statistics', () => {
+    const result = createConfirmDialogState(createBrowserBookmarkImportConfirmation({
+      categories: 3,
+      bookmarks: 12,
+      skipped: 2,
+      duplicateBookmarks: 4,
+      retainedIcons: 5,
+      generatedIcons: 7,
+      createdCategories: 2,
+      reusedCategories: 1,
+      existingDuplicates: 3,
+      importableBookmarks: 9,
+    }))
+
+    expect(result).toMatchObject({
+      title: '导入浏览器书签',
+      confirmLabel: '一键导入',
+      variant: 'default',
+    })
+    expect(result.message).toContain('3 个分类')
+    expect(result.message).toContain('12 个有效书签')
+    expect(result.message).toContain('无效链接 2 个')
+    expect(result.message).toContain('文件内重复 4 个')
+    expect(result.message).toContain('现有数据重复 3 个')
+    expect(result.message).toContain('预计导入 9 个')
+    expect(result.message).toContain('新建 2 个')
+    expect(result.message).toContain('复用 1 个')
+    expect(result.message).toContain('保留文件内图标 5 个')
+    expect(result.message).toContain('自动补全网站图标 7 个')
   })
 
   it('builds import overwrite confirmations', () => {

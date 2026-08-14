@@ -1,7 +1,11 @@
 ﻿import type { AdminData } from '../../shared/types'
 import { api, getErrorMessage } from './api'
 import { createBackupExportArtifact, createImportSuccessMessage } from './appBackup'
-import { createImportOverwriteConfirmation, type ConfirmDialogInput } from './appConfirmDialog'
+import {
+  createBrowserBookmarkImportConfirmation,
+  createImportOverwriteConfirmation,
+  type ConfirmDialogInput,
+} from './appConfirmDialog'
 import type { ImportSource } from './importData'
 import { toastStore } from './toast'
 
@@ -90,10 +94,21 @@ export async function importDataFromFile(
     const prepared = prepareImportText(text, detectedSource || source)
     const effectiveMode = detectedSource === 'browser-html' && source !== 'browser-html' ? 'merge' : mode
     prepared.payload.mode = effectiveMode
+    const browserPreview = detectedSource === 'browser-html'
+      ? (await import('./browserImportPreview')).previewBrowserImportAgainstCurrent(deps.adminData, prepared.payload)
+      : null
 
-    const confirmed = await deps.requestConfirmation(effectiveMode === 'replace'
-      ? createImportOverwriteConfirmation(prepared)
-      : { title: '追加导入数据', message: `将追加 ${prepared.categories} 个分类中的 ${prepared.bookmarks} 个书签，重复链接会保留。`, confirmLabel: '确认导入' })
+    const confirmed = await deps.requestConfirmation(detectedSource === 'browser-html'
+      ? createBrowserBookmarkImportConfirmation({
+          ...prepared,
+          createdCategories: browserPreview?.createdCategories,
+          reusedCategories: browserPreview?.reusedCategories,
+          existingDuplicates: browserPreview?.duplicateBookmarks,
+          importableBookmarks: browserPreview?.importableBookmarks,
+        })
+      : effectiveMode === 'replace'
+        ? createImportOverwriteConfirmation(prepared)
+        : { title: '追加导入数据', message: `将追加 ${prepared.categories} 个分类中的 ${prepared.bookmarks} 个书签，重复链接会保留。`, confirmLabel: '确认导入' })
     if (!confirmed) {
       return
     }
@@ -101,6 +116,12 @@ export async function importDataFromFile(
     state.importing = true
     notifyState(state, deps.onStateChange)
     const result = await api.data.importAll(prepared.payload)
+    if (detectedSource === 'browser-html') {
+      result.invalid_bookmarks = prepared.skipped ?? 0
+      result.retained_icons = prepared.retainedIcons ?? 0
+      result.generated_icons = prepared.generatedIcons ?? 0
+      result.duplicate_bookmarks = (result.duplicate_bookmarks ?? 0) + (prepared.duplicateBookmarks ?? 0)
+    }
     deps.applyLoggedInData(result.data)
     await deps.persistCurrentAdminData()
     state.backupMessage = createImportSuccessMessage(result)

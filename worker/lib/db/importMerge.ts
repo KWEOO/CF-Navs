@@ -1,4 +1,5 @@
 import type { AdminData, Bookmark, Category, ImportReq } from '../../../shared/types'
+import { bookmarkIdentityKey } from '../../../shared/bookmarkIdentity'
 
 export interface MergeResult {
   payload: Pick<ImportReq, 'categories' | 'bookmarks' | 'settings'>
@@ -17,7 +18,7 @@ function categoryPathKey(parentId: number | null, title: string): string {
 
 export function mergeImportData(
   current: AdminData,
-  incoming: Pick<ImportReq, 'categories' | 'bookmarks' | 'settings'>,
+  incoming: Pick<ImportReq, 'categories' | 'bookmarks' | 'settings' | 'dedupe_bookmarks'>,
 ): MergeResult {
   const categories = current.categories.map((category) => ({ ...category }))
   const bookmarks = current.bookmarks.map((bookmark) => ({ ...bookmark }))
@@ -95,6 +96,11 @@ export function mergeImportData(
   }
 
   const nextSortByCategory = new Map<number, number>()
+  const bookmarkKeys = new Set(
+    bookmarks
+      .map((bookmark) => bookmarkIdentityKey(bookmark.category_id, bookmark.url))
+      .filter(Boolean),
+  )
   for (const category of categories) {
     nextSortByCategory.set(
       category.id,
@@ -108,6 +114,12 @@ export function mergeImportData(
       skippedBookmarks += 1
       continue
     }
+    const identityKey = bookmarkIdentityKey(category.id, incomingBookmark.url)
+    if (incoming.dedupe_bookmarks && identityKey && bookmarkKeys.has(identityKey)) {
+      skippedBookmarks += 1
+      continue
+    }
+    if (identityKey) bookmarkKeys.add(identityKey)
     const sort = (nextSortByCategory.get(category.id) ?? -1) + 1
     nextSortByCategory.set(category.id, sort)
     const bookmark: Bookmark = {

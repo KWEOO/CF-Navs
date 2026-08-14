@@ -2,6 +2,7 @@
   export let open = false
   export let loading = false
   export let error = ''
+  export let dismissible = true
   export let onSubmit:
     | ((payload: { username: string; password: string }) => void | Promise<void>)
     | undefined = undefined
@@ -37,14 +38,16 @@
 </script>
 
 {#if open}
-  <div class="modal-backdrop">
+  <div class="modal-backdrop" class:private-gate={!dismissible}>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
       <div class="modal-header">
         <div>
           <p class="modal-eyebrow">管理员登录</p>
           <h2 id="login-modal-title">请输入账号信息</h2>
         </div>
-        <button type="button" class="ghost-button" on:click={handleCancel} disabled={loading}>取消</button>
+        {#if dismissible}
+          <button type="button" class="ghost-button" on:click={handleCancel} disabled={loading}>取消</button>
+        {/if}
       </div>
 
       <form class="modal-form" on:submit|preventDefault={handleSubmit}>
@@ -69,7 +72,9 @@
         {/if}
 
         <div class="modal-actions">
-          <button type="button" class="ghost-button" on:click={handleCancel} disabled={loading}>取消</button>
+          {#if dismissible}
+            <button type="button" class="ghost-button" on:click={handleCancel} disabled={loading}>取消</button>
+          {/if}
           <button type="submit" class="primary-button" disabled={loading || !username.trim() || !password}>
             {#if loading}登录中...{:else}登录{/if}
           </button>
@@ -89,12 +94,22 @@
     justify-content: center;
     padding: 20px;
     background: rgba(15, 23, 42, 0.56);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
   }
 
   .modal-backdrop::before {
     content: '';
     position: absolute;
     inset: 0;
+  }
+
+  .modal-backdrop.private-gate {
+    justify-content: flex-end;
+    padding: clamp(20px, 7vw, 100px);
+    background: linear-gradient(90deg, rgba(3, 7, 18, 0.08), rgba(3, 7, 18, 0.58));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .modal-card {
@@ -104,6 +119,16 @@
     background: #ffffff;
     box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
     padding: 20px;
+  }
+
+  .private-gate .modal-card {
+    width: min(100%, 440px);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 20px;
+    padding: clamp(22px, 4vw, 30px);
+    box-shadow:
+      0 32px 72px rgba(2, 6, 23, 0.42),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 
   .modal-header {
@@ -193,5 +218,32 @@
   .ghost-button:disabled {
     cursor: not-allowed;
     opacity: 0.6;
+  }
+
+  @media (max-width: 860px) {
+    .modal-backdrop.private-gate {
+      align-items: flex-end;
+      justify-content: center;
+      padding: 20px;
+      background: linear-gradient(180deg, rgba(3, 7, 18, 0.12), rgba(3, 7, 18, 0.72));
+    }
+
+    .private-gate .modal-card {
+      width: min(100%, 460px);
+      max-height: calc(100dvh - 250px);
+      overflow-y: auto;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .modal-backdrop.private-gate {
+      padding: 14px;
+    }
+
+    .private-gate .modal-card {
+      max-height: calc(100dvh - 230px);
+      border-radius: 18px;
+      padding: 20px;
+    }
   }
 </style>

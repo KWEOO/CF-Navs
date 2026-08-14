@@ -356,6 +356,8 @@ export interface ImportReq {
   bookmarks: Bookmark[]
   settings?: Partial<Settings>
   mode?: 'replace' | 'merge'
+  // 浏览器书签 HTML 合并时，跳过同一完整分类路径下已存在的规范化 URL。
+  dedupe_bookmarks?: boolean
 }
 export interface ImportResp {
   categories: number
@@ -365,6 +367,10 @@ export interface ImportResp {
   created_categories?: number
   reused_categories?: number
   skipped_bookmarks?: number
+  duplicate_bookmarks?: number
+  invalid_bookmarks?: number
+  retained_icons?: number
+  generated_icons?: number
 }
 
 export interface BatchDeleteReq {
